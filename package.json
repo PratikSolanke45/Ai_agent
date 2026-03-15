@@ -1,0 +1,11 @@
+{
+  "name": "neuralmesh-groq",
+  "version": "1.0.0",
+  "description": "Multi-Agent AI Pipeline Chatbot — 5 agents powered by Groq FREE API",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": { "node": ">=16.0.0" },
+  "dependencies": {}
+}

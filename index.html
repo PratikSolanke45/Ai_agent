@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NeuralMesh — Multi-Agent AI (Groq)</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#08080e; --surface:#111118; --surface2:#181824; --surface3:#20202e;
+  --border:rgba(255,255,255,0.06); --border2:rgba(255,255,255,0.12);
+  --text:#e6e6f0; --muted:#8080a0; --dim:#404058;
+  --accent:#6366f1; --accent2:#818cf8;
+  --teal:#2dd4bf; --coral:#fb7185; --amber:#fbbf24;
+  --green:#34d399; --blue:#60a5fa; --purple:#c084fc;
+  --head:'Syne',sans-serif; --mono:'Space Mono',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{background:var(--bg);color:var(--text);font-family:var(--mono);display:flex;height:100vh}
+
+/* ═══ SIDEBAR ═══════════════════════════════════════════════════════════════ */
+.sidebar{width:268px;min-width:268px;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column}
+.sb-top{padding:22px 18px 16px;border-bottom:1px solid var(--border)}
+.logo{font-family:var(--head);font-weight:800;font-size:21px;letter-spacing:-.5px;background:linear-gradient(130deg,var(--accent2) 0%,var(--teal) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.logo-tag{font-size:9px;color:var(--dim);letter-spacing:2.5px;text-transform:uppercase;margin-top:3px}
+.groq-badge{display:inline-flex;align-items:center;gap:5px;margin-top:8px;padding:3px 10px;border-radius:20px;background:rgba(52,211,153,.1);border:1px solid rgba(52,211,153,.25);font-size:9px;color:var(--green);letter-spacing:1px;text-transform:uppercase;font-family:var(--head);font-weight:700}
+.gb-dot{width:5px;height:5px;border-radius:50%;background:var(--green);box-shadow:0 0 5px var(--green);animation:gbpulse 2s ease-in-out infinite}
+@keyframes gbpulse{0%,100%{opacity:1}50%{opacity:.5}}
+
+/* agents */
+.sb-sec{padding:14px 12px;border-bottom:1px solid var(--border)}
+.sec-lbl{font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--dim);padding:0 6px;margin-bottom:10px}
+.ag-row{display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:8px;margin-bottom:3px;border:1px solid transparent;transition:all .15s;cursor:default}
+.ag-row:hover{background:var(--surface2);border-color:var(--border)}
+.ag-ico{width:30px;height:30px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0}
+.ag-name{font-size:11px;font-weight:700;font-family:var(--head)}
+.ag-role{font-size:9px;color:var(--muted);margin-top:1px}
+.ag-dot{width:7px;height:7px;border-radius:50%;background:var(--dim);margin-left:auto;flex-shrink:0;transition:all .35s}
+.ag-dot.on{background:var(--green);box-shadow:0 0 8px var(--green)}
+.ag-dot.done{background:var(--accent2);box-shadow:0 0 5px var(--accent2)}
+
+/* pipeline tracker */
+.pip-wrap{padding:14px 18px;flex:1;overflow-y:auto}
+.pip-steps{display:flex;flex-direction:column}
+.pip-row{display:flex;align-items:flex-start;gap:10px;padding:6px 0;position:relative}
+.pip-row::before{content:'';position:absolute;left:10px;top:24px;bottom:-6px;width:1px;background:var(--border2)}
+.pip-row:last-child::before{display:none}
+.pip-n{width:20px;height:20px;border-radius:50%;background:var(--surface3);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--muted);flex-shrink:0;margin-top:1px;transition:all .3s;font-family:var(--head);font-weight:700}
+.pip-n.run{background:var(--accent);border-color:var(--accent);color:#fff;animation:pp 1s ease-in-out infinite}
+.pip-n.done{border-color:var(--green);color:var(--green);background:rgba(52,211,153,.08)}
+@keyframes pp{0%,100%{box-shadow:0 0 0 0 rgba(99,102,241,.5)}50%{box-shadow:0 0 0 5px rgba(99,102,241,0)}}
+.pip-lbl{font-size:10px;font-family:var(--head);font-weight:700;margin-top:2px}
+.pip-sub{font-size:9px;color:var(--dim);margin-top:2px}
+
+.sb-foot{padding:10px 14px;border-top:1px solid var(--border);font-size:9px;color:var(--dim);letter-spacing:1px}
+
+/* ═══ MAIN ═══════════════════════════════════════════════════════════════════ */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+.chat-head{padding:14px 24px;border-bottom:1px solid var(--border);background:var(--surface);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.ch-title{font-family:var(--head);font-weight:700;font-size:15px}
+.ch-sub{font-size:10px;color:var(--muted);margin-top:2px}
+.status-pill{display:flex;align-items:center;gap:7px;padding:5px 13px;border-radius:20px;background:var(--surface2);border:1px solid var(--border2);font-size:10px;color:var(--muted);white-space:nowrap}
+.sp-dot{width:6px;height:6px;border-radius:50%;transition:all .3s}
+.sp-dot.ok{background:var(--green);box-shadow:0 0 6px var(--green)}
+.sp-dot.err{background:var(--coral);box-shadow:0 0 5px var(--coral)}
+.sp-dot.busy{background:var(--amber);box-shadow:0 0 5px var(--amber);animation:pp 1s ease-in-out infinite}
+
+/* API key banner */
+#apiBanner{display:none;background:rgba(251,191,36,.07);border-bottom:1px solid rgba(251,191,36,.2);padding:10px 20px;align-items:center;gap:10px;flex-shrink:0}
+#apiBanner span{font-size:11px;color:var(--amber);white-space:nowrap}
+#apiKeyInput{flex:1;background:var(--surface2);border:1px solid rgba(251,191,36,.3);border-radius:7px;padding:6px 12px;color:var(--text);font-family:var(--mono);font-size:11px;outline:none;min-width:0}
+#apiKeyInput:focus{border-color:var(--amber)}
+#apiKeyInput::placeholder{color:var(--dim)}
+.api-save{padding:6px 16px;border-radius:7px;background:var(--amber);color:#000;border:none;cursor:pointer;font-size:11px;font-family:var(--head);font-weight:700;white-space:nowrap;transition:opacity .15s}
+.api-save:hover{opacity:.85}
+
+/* messages */
+.msgs{flex:1;overflow-y:auto;padding:24px;display:flex;flex-direction:column;gap:22px;min-height:0}
+.msgs::-webkit-scrollbar{width:3px}
+.msgs::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+.msg-row{display:flex;gap:12px;animation:fu .28s ease}
+@keyframes fu{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:none}}
+.msg-row.user{flex-direction:row-reverse}
+.m-av{width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;font-family:var(--head);font-weight:700}
+.bubble{max-width:72%;padding:13px 17px;border-radius:13px;font-size:13px;line-height:1.7;min-width:0}
+.user .bubble{background:var(--accent);color:#fff;border-bottom-right-radius:3px}
+.sys .bubble{background:var(--surface2);border:1px solid var(--border);color:var(--text);border-bottom-left-radius:3px}
+.b-who{font-size:9px;letter-spacing:1.5px;text-transform:uppercase;font-family:var(--head);font-weight:700;margin-bottom:8px}
+
+/* pipeline trace */
+.trace{background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:9px 13px;margin-top:11px}
+.tr-head{display:flex;align-items:center;gap:7px;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--dim);cursor:pointer;user-select:none;transition:color .15s}
+.tr-head:hover{color:var(--muted)}
+.tr-chev{font-size:8px;transition:transform .2s}
+.tr-chev.open{transform:rotate(90deg)}
+.tr-body{display:none;margin-top:9px;flex-direction:column;gap:4px}
+.tr-body.open{display:flex}
+.tr-step{display:flex;gap:8px;align-items:flex-start;padding:5px 9px;border-radius:6px;background:var(--surface3);font-size:10px;line-height:1.55}
+.tr-ico{flex-shrink:0;font-size:12px;margin-top:1px}
+.tr-ag{color:var(--muted)}
+.tr-tx{color:var(--text)}
+
+/* typing */
+.typing{display:flex;gap:4px;align-items:center;padding:3px 0}
+.td{width:6px;height:6px;border-radius:50%;background:var(--accent);animation:tda 1.2s ease-in-out infinite}
+.td:nth-child(2){animation-delay:.2s}
+.td:nth-child(3){animation-delay:.4s}
+@keyframes tda{0%,60%,100%{opacity:.2;transform:scale(.8)}30%{opacity:1;transform:scale(1.15)}}
+
+/* content formatting */
+.content{line-height:1.75}
+.content h2{font-family:var(--head);font-size:15px;font-weight:700;margin:14px 0 6px;color:var(--text)}
+.content h3{font-family:var(--head);font-size:13px;font-weight:700;margin:10px 0 5px;color:var(--muted)}
+.content p{margin:5px 0}
+.content ul,.content ol{padding-left:20px;margin:6px 0}
+.content li{margin:3px 0;font-size:12px;line-height:1.65}
+.content strong{color:var(--text);font-weight:700}
+.content em{color:var(--muted);font-style:italic}
+.content code{background:var(--surface3);padding:2px 6px;border-radius:4px;font-size:11px;color:var(--teal);font-family:var(--mono)}
+.content pre{background:var(--bg);border:1px solid var(--border2);border-radius:9px;padding:14px 16px;margin:10px 0;overflow-x:auto;position:relative}
+.content pre .lang-tag{position:absolute;top:8px;right:12px;font-size:9px;color:var(--dim);letter-spacing:1px;text-transform:uppercase;font-family:var(--head)}
+.content pre code{background:none;padding:0;font-size:11px;color:var(--teal);display:block;white-space:pre;line-height:1.65}
+.content blockquote{border-left:3px solid var(--accent);padding:6px 12px;margin:8px 0;color:var(--muted);font-size:12px;border-radius:0 5px 5px 0;background:rgba(99,102,241,.05)}
+.err-box{background:rgba(251,113,133,.08);border:1px solid rgba(251,113,133,.25);border-radius:8px;padding:10px 14px;color:var(--coral);font-size:12px;margin-top:6px;line-height:1.65}
+.err-help{margin-top:6px;font-size:11px;color:var(--muted)}
+.err-help a{color:var(--accent2);text-decoration:none}
+.err-help a:hover{text-decoration:underline}
+
+/* welcome screen */
+.welcome{display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;text-align:center;padding:32px 20px}
+.w-logo{font-family:var(--head);font-weight:800;font-size:50px;background:linear-gradient(130deg,var(--accent2) 0%,var(--teal) 55%,var(--blue) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:6px;line-height:1.1}
+.w-sub{font-size:13px;color:var(--muted);max-width:480px;line-height:1.75;margin-bottom:24px}
+.w-flow{display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:center;margin-bottom:28px}
+.w-node{padding:7px 14px;border-radius:8px;background:var(--surface2);border:1px solid var(--border2);font-size:11px;font-family:var(--head);font-weight:600;display:flex;align-items:center;gap:6px}
+.w-arr{color:var(--dim);font-size:12px}
+.ex-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;max-width:600px;width:100%}
+.ex-card{padding:13px 15px;border-radius:10px;background:var(--surface);border:1px solid var(--border2);cursor:pointer;transition:all .15s;text-align:left}
+.ex-card:hover{border-color:var(--accent);background:var(--surface2)}
+.ex-tag{display:block;font-family:var(--head);font-size:9px;color:var(--accent2);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:5px;font-weight:700}
+.ex-txt{font-size:11px;color:var(--muted);line-height:1.6}
+.ex-card:hover .ex-txt{color:var(--text)}
+
+/* input */
+.inp-area{padding:14px 24px 18px;border-top:1px solid var(--border);background:var(--surface);flex-shrink:0}
+.mode-tabs{display:flex;gap:4px;margin-bottom:10px}
+.m-tab{padding:4px 13px;border-radius:20px;font-size:10px;font-family:var(--head);font-weight:700;cursor:pointer;transition:all .15s;background:transparent;border:1px solid var(--border);color:var(--muted);letter-spacing:.5px}
+.m-tab.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.inp-box{display:flex;gap:10px;align-items:flex-end;background:var(--surface2);border:1px solid var(--border2);border-radius:12px;padding:10px 14px;transition:border-color .15s}
+.inp-box:focus-within{border-color:var(--accent)}
+#inp{flex:1;background:none;border:none;outline:none;color:var(--text);font-family:var(--mono);font-size:13px;resize:none;max-height:120px;line-height:1.6;min-height:20px}
+#inp::placeholder{color:var(--dim)}
+.send-btn{width:34px;height:34px;border-radius:9px;background:var(--accent);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s;color:#fff;font-size:17px;font-weight:700}
+.send-btn:hover:not(:disabled){background:var(--accent2);transform:scale(1.06)}
+.send-btn:disabled{background:var(--dim);cursor:not-allowed;transform:none}
+.hints{display:flex;gap:5px;flex-wrap:wrap;margin-top:8px}
+.hint{padding:3px 11px;border-radius:20px;background:var(--surface2);border:1px solid var(--border);font-size:10px;color:var(--muted);cursor:pointer;transition:all .15s;font-family:var(--head)}
+.hint:hover{border-color:var(--accent);color:var(--accent2)}
+
+@media(max-width:680px){.sidebar{display:none}.ex-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<!-- ═══ SIDEBAR ═══════════════════════════════════════════════════════════════ -->
+<aside class="sidebar">
+  <div class="sb-top">
+    <div class="logo">NeuralMesh</div>
+    <div class="logo-tag">Multi-Agent Pipeline</div>
+    <div class="groq-badge"><div class="gb-dot"></div>Powered by Groq · FREE</div>
+  </div>
+
+  <div class="sb-sec">
+    <div class="sec-lbl">5 Active Agents</div>
+    <div class="ag-row">
+      <div class="ag-ico" style="background:rgba(129,140,248,.13)">🧠</div>
+      <div><div class="ag-name" style="color:var(--accent2)">Orchestrator</div><div class="ag-role">Routes & plans all tasks</div></div>
+      <div class="ag-dot" id="d-orchestrator"></div>
+    </div>
+    <div class="ag-row">
+      <div class="ag-ico" style="background:rgba(45,212,191,.13)">🔍</div>
+      <div><div class="ag-name" style="color:var(--teal)">Researcher</div><div class="ag-role">Facts & deep knowledge</div></div>
+      <div class="ag-dot" id="d-researcher"></div>
+    </div>
+    <div class="ag-row">
+      <div class="ag-ico" style="background:rgba(251,113,133,.13)">💻</div>
+      <div><div class="ag-name" style="color:var(--coral)">Coder</div><div class="ag-role">Code & implementation</div></div>
+      <div class="ag-dot" id="d-coder"></div>
+    </div>
+    <div class="ag-row">
+      <div class="ag-ico" style="background:rgba(251,191,36,.13)">📊</div>
+      <div><div class="ag-name" style="color:var(--amber)">Analyst</div><div class="ag-role">Analysis & trade-offs</div></div>
+      <div class="ag-dot" id="d-analyst"></div>
+    </div>
+    <div class="ag-row">
+      <div class="ag-ico" style="background:rgba(96,165,250,.13)">✍️</div>
+      <div><div class="ag-name" style="color:var(--blue)">Writer</div><div class="ag-role">Synthesis & final output</div></div>
+      <div class="ag-dot" id="d-writer"></div>
+    </div>
+  </div>
+
+  <div class="pip-wrap">
+    <div class="sec-lbl">Pipeline Steps</div>
+    <div class="pip-steps">
+      <div class="pip-row"><div class="pip-n" id="p1">1</div><div><div class="pip-lbl">Orchestrator Analysis</div><div class="pip-sub">Classify intent & plan routing</div></div></div>
+      <div class="pip-row"><div class="pip-n" id="p2">2</div><div><div class="pip-lbl">Specialist Execution</div><div class="pip-sub">Agents run in parallel</div></div></div>
+      <div class="pip-row"><div class="pip-n" id="p3">3</div><div><div class="pip-lbl">Writer Synthesis</div><div class="pip-sub">All outputs merged</div></div></div>
+      <div class="pip-row"><div class="pip-n" id="p4">4</div><div><div class="pip-lbl">Response Delivered</div><div class="pip-sub">Final answer to user</div></div></div>
+    </div>
+  </div>
+
+  <div class="sb-foot">MODEL // llama3-70b-8192 via Groq</div>
+</aside>
+
+<!-- ═══ MAIN ══════════════════════════════════════════════════════════════════ -->
+<main class="main">
+  <div class="chat-head">
+    <div>
+      <div class="ch-title">Agent Pipeline Chat</div>
+      <div class="ch-sub">5 AI agents collaborating in real-time via Groq</div>
+    </div>
+    <div class="status-pill">
+      <div class="sp-dot ok" id="spDot"></div>
+      <span id="spTxt">All agents ready</span>
+    </div>
+  </div>
+
+  <!-- API Key Banner -->
+  <div id="apiBanner">
+    <span>⚠ No Groq API key —</span>
+    <input type="password" id="apiKeyInput" placeholder="Paste your free Groq key here  (gsk_...)">
+    <button class="api-save" onclick="saveKey()">Connect ↗</button>
+    <span style="font-size:10px;color:var(--dim)">Get free key: <a href="https://console.groq.com" target="_blank" style="color:var(--green);text-decoration:none">console.groq.com</a></span>
+  </div>
+
+  <!-- Messages -->
+  <div class="msgs" id="msgs">
+    <div class="welcome" id="welcome">
+      <div class="w-logo">NeuralMesh</div>
+      <div class="w-sub">A real 5-agent pipeline powered by <strong style="color:var(--green)">Groq's free API</strong>. Each message flows through Orchestrator → Specialist Agents → Writer to deliver research, code, and analysis in one unified response.</div>
+      <div class="w-flow">
+        <div class="w-node">🧠 Orchestrator</div>
+        <div class="w-arr">→</div>
+        <div class="w-node">🔍 Researcher</div>
+        <div class="w-arr">+</div>
+        <div class="w-node">💻 Coder</div>
+        <div class="w-arr">+</div>
+        <div class="w-node">📊 Analyst</div>
+        <div class="w-arr">→</div>
+        <div class="w-node">✍️ Writer</div>
+      </div>
+      <div class="ex-grid">
+        <div class="ex-card" onclick="useEx(this)">
+          <span class="ex-tag">Research + Code</span>
+          <div class="ex-txt">Explain how JWT authentication works and write a complete Node.js implementation</div>
+        </div>
+        <div class="ex-card" onclick="useEx(this)">
+          <span class="ex-tag">Research + Analyse</span>
+          <div class="ex-txt">What is machine learning? Compare supervised vs unsupervised learning with pros and cons</div>
+        </div>
+        <div class="ex-card" onclick="useEx(this)">
+          <span class="ex-tag">Code + Analyse</span>
+          <div class="ex-txt">Write a Python binary search tree and analyse time complexity vs other data structures</div>
+        </div>
+        <div class="ex-card" onclick="useEx(this)">
+          <span class="ex-tag">Full Pipeline</span>
+          <div class="ex-txt">Research REST vs GraphQL APIs, write example code for both, and analyse when to use each</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Input area -->
+  <div class="inp-area">
+    <div class="mode-tabs">
+      <div class="m-tab on"  onclick="setMode(this,'full')"    >🔀 Full Pipeline</div>
+      <div class="m-tab"     onclick="setMode(this,'research')" >🔍 Research</div>
+      <div class="m-tab"     onclick="setMode(this,'code')"     >💻 Code</div>
+      <div class="m-tab"     onclick="setMode(this,'analyse')"  >📊 Analyse</div>
+    </div>
+    <div class="inp-box">
+      <textarea id="inp" placeholder="Ask anything — 5 agents will collaborate to answer…"
+        rows="1" onkeydown="onKey(event)" oninput="resize(this)"></textarea>
+      <button class="send-btn" id="sendBtn" onclick="send()" title="Send (Enter)">↑</button>
+    </div>
+    <div class="hints">
+      <div class="hint" onclick="hint('Explain and write code for')">+ code</div>
+      <div class="hint" onclick="hint('Research and explain')">+ research</div>
+      <div class="hint" onclick="hint('Compare and analyse the pros and cons of')">+ compare</div>
+      <div class="hint" onclick="hint('Step-by-step tutorial on')">+ tutorial</div>
+      <div class="hint" onclick="hint('What are the best practices for')">+ best practices</div>
+    </div>
+  </div>
+</main>
+
+<script>
+// ─── State ─────────────────────────────────────────────────────────────────
+let mode = 'full', busy = false, history = [];
+
+const META = {
+  orchestrator: { icon:'🧠', color:'var(--accent2)', label:'Orchestrator' },
+  researcher:   { icon:'🔍', color:'var(--teal)',    label:'Researcher'   },
+  coder:        { icon:'💻', color:'var(--coral)',   label:'Coder'        },
+  analyst:      { icon:'📊', color:'var(--amber)',   label:'Analyst'      },
+  writer:       { icon:'✍️',  color:'var(--blue)',    label:'Writer'       },
+};
+
+// ─── Init ──────────────────────────────────────────────────────────────────
+(async () => {
+  try {
+    const r = await fetch('/api/health');
+    const d = await r.json();
+    if (!d.apiKeySet) showBanner();
+  } catch { showBanner(); setStatus('err','Server offline'); }
+})();
+
+function showBanner() { document.getElementById('apiBanner').style.display = 'flex'; }
+function saveKey() {
+  const k = document.getElementById('apiKeyInput').value.trim();
+  if (!k.startsWith('gsk_') && !k.startsWith('gsk-')) {
+    alert('Invalid key — Groq keys start with "gsk_"\nGet yours free at https://console.groq.com');
+    return;
+  }
+  sessionStorage.setItem('groq_key', k);
+  document.getElementById('apiBanner').style.display = 'none';
+  setStatus('ok', 'All agents ready');
+}
+
+// ─── Pipeline UI ──────────────────────────────────────────────────────────
+function setPip(n, s) {
+  const el = document.getElementById('p'+n);
+  el.className = 'pip-n' + (s ? ' '+s : '');
+  el.textContent = s === 'done' ? '✓' : n;
+}
+function setDot(a, s) {
+  const el = document.getElementById('d-'+a);
+  if (el) el.className = 'ag-dot' + (s ? ' '+s : '');
+}
+function resetPip() {
+  [1,2,3,4].forEach(i => setPip(i,''));
+  Object.keys(META).forEach(a => setDot(a,''));
+}
+function setStatus(type, txt) {
+  document.getElementById('spDot').className = 'sp-dot ' + type;
+  document.getElementById('spTxt').textContent = txt;
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────
+function useEx(el) {
+  document.getElementById('inp').value = el.querySelector('.ex-txt').textContent.trim();
+  document.getElementById('welcome').style.display = 'none';
+  resize(document.getElementById('inp'));
+}
+function hint(t) { const el=document.getElementById('inp'); el.value=t+' '; el.focus(); resize(el); }
+function setMode(el,m) { mode=m; document.querySelectorAll('.m-tab').forEach(t=>t.classList.remove('on')); el.classList.add('on'); }
+function onKey(e) { if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send();} }
+function resize(el) { el.style.height='auto'; el.style.height=Math.min(el.scrollHeight,120)+'px'; }
+function scrollDown() { const m=document.getElementById('msgs'); requestAnimationFrame(()=>{ m.scrollTop=m.scrollHeight; }); }
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// ─── Message rendering ────────────────────────────────────────────────────
+function addUserMsg(txt) {
+  document.getElementById('welcome').style.display = 'none';
+  const row = document.createElement('div');
+  row.className = 'msg-row user';
+  row.innerHTML = `<div class="m-av" style="background:var(--accent);color:#fff;font-size:13px">U</div>
+    <div class="bubble">${esc(txt).replace(/\n/g,'<br>')}</div>`;
+  document.getElementById('msgs').appendChild(row);
+  scrollDown();
+}
+
+function addTyping(id) {
+  const row = document.createElement('div');
+  row.className = 'msg-row sys'; row.id = id;
+  row.innerHTML = `<div class="m-av" style="background:var(--surface2);border:1px solid var(--border2);font-size:15px">🤖</div>
+    <div class="bubble"><div class="typing"><div class="td"></div><div class="td"></div><div class="td"></div></div></div>`;
+  document.getElementById('msgs').appendChild(row);
+  scrollDown();
+}
+function rmTyping(id) { const e=document.getElementById(id); if(e) e.remove(); }
+
+function addSysMsg(agentKey, content, steps) {
+  const a = META[agentKey] || META.writer;
+  const tid = 'tr' + Date.now();
+  const row = document.createElement('div');
+  row.className = 'msg-row sys';
+  row.innerHTML = `
+    <div class="m-av" style="background:var(--surface2);border:1px solid var(--border2);font-size:16px">${a.icon}</div>
+    <div class="bubble">
+      <div class="b-who" style="color:${a.color}">${a.label} · Final Response</div>
+      <div class="content">${renderMd(content)}</div>
+      ${steps && steps.length ? buildTrace(tid, steps) : ''}
+    </div>`;
+  document.getElementById('msgs').appendChild(row);
+  scrollDown();
+}
+
+function addErrMsg(txt) {
+  const row = document.createElement('div');
+  row.className = 'msg-row sys';
+  row.innerHTML = `<div class="m-av" style="background:var(--surface2);border:1px solid rgba(251,113,133,.3);color:var(--coral);font-size:16px">⚠</div>
+    <div class="bubble">
+      <div class="b-who" style="color:var(--coral)">Pipeline Error</div>
+      <div class="err-box">${esc(txt)}
+        <div class="err-help">Get your free Groq API key at <a href="https://console.groq.com" target="_blank">console.groq.com</a> → paste it in the yellow banner above.</div>
+      </div>
+    </div>`;
+  document.getElementById('msgs').appendChild(row);
+  scrollDown();
+}
+
+function buildTrace(id, steps) {
+  const rows = steps.map(s => {
+    const a = META[s.agent] || {icon:'⚙', label: s.agent};
+    return `<div class="tr-step"><span class="tr-ico">${a.icon}</span><div><span class="tr-ag">${a.label}: </span><span class="tr-tx">${esc(String(s.text||'').substring(0,130))}</span></div></div>`;
+  }).join('');
+  return `<div class="trace">
+    <div class="tr-head" onclick="togTrace('${id}')">
+      <span class="tr-chev" id="tc${id}">▶</span>
+      Pipeline trace &nbsp;·&nbsp; ${steps.length} steps
+    </div>
+    <div class="tr-body" id="${id}">${rows}</div>
+  </div>`;
+}
+function togTrace(id) {
+  document.getElementById(id).classList.toggle('open');
+  document.getElementById('tc'+id).classList.toggle('open');
+}
+
+// ─── Markdown renderer ────────────────────────────────────────────────────
+function renderMd(txt) {
+  // Fenced code blocks with lang tag
+  txt = txt.replace(/```(\w*)\n?([\s\S]*?)```/g, (_, lang, code) => {
+    const l = lang || 'code';
+    return `<pre><span class="lang-tag">${esc(l)}</span><code class="lang-${l}">${esc(code.trim())}</code></pre>`;
+  });
+  // Inline code
+  txt = txt.replace(/`([^`\n]+)`/g, '<code>$1</code>');
+  // Bold & italic
+  txt = txt.replace(/\*\*\*([^*]+)\*\*\*/g, '<strong><em>$1</em></strong>');
+  txt = txt.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>');
+  txt = txt.replace(/\*([^*\n]+)\*/g, '<em>$1</em>');
+  // Headers
+  txt = txt.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+  txt = txt.replace(/^## (.+)$/gm,  '<h2>$1</h2>');
+  txt = txt.replace(/^# (.+)$/gm,   '<h2>$1</h2>');
+  // Blockquote
+  txt = txt.replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>');
+  // Unordered list
+  txt = txt.replace(/((?:^[ \t]*[•\-\*] .+(?:\n|$))+)/gm, block => {
+    const items = block.trim().split('\n').map(l => `<li>${l.replace(/^[ \t]*[•\-\*] /,'').trim()}</li>`).join('');
+    return `<ul>${items}</ul>`;
+  });
+  // Ordered list
+  txt = txt.replace(/((?:^[ \t]*\d+\. .+(?:\n|$))+)/gm, block => {
+    const items = block.trim().split('\n').map(l => `<li>${l.replace(/^[ \t]*\d+\. /,'').trim()}</li>`).join('');
+    return `<ol>${items}</ol>`;
+  });
+  // Paragraphs
+  txt = txt.split(/\n{2,}/).map(p => {
+    p = p.trim();
+    if (!p) return '';
+    if (/^<(h[23]|ul|ol|pre|blockquote)/.test(p)) return p;
+    return `<p>${p.replace(/\n/g,'<br>')}</p>`;
+  }).join('\n');
+  return txt;
+}
+
+// ─── Main send ────────────────────────────────────────────────────────────
+async function send() {
+  if (busy) return;
+  const el = document.getElementById('inp');
+  const msg = el.value.trim();
+  if (!msg) return;
+
+  busy = true;
+  document.getElementById('sendBtn').disabled = true;
+  el.value = ''; resize(el);
+  resetPip();
+  setStatus('busy', 'Pipeline running…');
+  addUserMsg(msg);
+
+  const typId = 'typ' + Date.now();
+  addTyping(typId);
+
+  // Animate pipeline steps while running
+  setPip(1,'run'); setDot('orchestrator','on');
+  setTimeout(()=>{ setPip(1,'done'); setDot('orchestrator','done'); setPip(2,'run'); }, 1200);
+
+  try {
+    const headers = { 'Content-Type':'application/json' };
+    const storedKey = sessionStorage.getItem('groq_key');
+    if (storedKey) headers['X-Api-Key'] = storedKey;
+
+    const resp = await fetch('/api/chat', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ message: msg, mode, history: history.slice(-6) })
+    });
+
+    const data = await resp.json();
+
+    if (!resp.ok || data.error) {
+      rmTyping(typId); resetPip();
+      addErrMsg(data.error || 'Unknown pipeline error');
+      setStatus('err', 'Pipeline error');
+      return;
+    }
+
+    // Mark all used agents done
+    setPip(2,'done'); setPip(3,'done'); setPip(4,'done');
+    (data.agentsUsed||[]).forEach(a => setDot(a,'done'));
+
+    rmTyping(typId);
+    addSysMsg('writer', data.finalResponse, data.steps || []);
+
+    history.push({ role:'user', content: msg });
+    history.push({ role:'assistant', content: data.finalResponse });
+    setStatus('ok', 'All agents ready');
+
+  } catch(e) {
+    rmTyping(typId); resetPip();
+    addErrMsg(e.message || 'Network error — is the server running on localhost:3000?');
+    setStatus('err', 'Connection failed');
+  } finally {
+    busy = false;
+    document.getElementById('sendBtn').disabled = false;
+  }
+}
+</script>
+</body>
+</html>
